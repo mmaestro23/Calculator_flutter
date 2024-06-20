@@ -1,8 +1,9 @@
-// ignore_for_file: prefer_const_constructors
+// ignore_for_file: prefer_const_constructors, no_leading_underscores_for_local_identifiers, unreachable_switch_case
 
 import 'package:calc/models/button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,7 +13,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  String result = '123456789';
+  String result = '0';
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +28,7 @@ class _HomePageState extends State<HomePage> {
             GestureDetector(
               onHorizontalDragEnd: (details) => {_dragToDelete()},
               child: Text(
-                result,
+                _formatResult(result),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -40,6 +41,7 @@ class _HomePageState extends State<HomePage> {
             SizedBox(
               height: 15,
             ),
+            // ignore: sized_box_for_whitespace
             Container(
               height: MediaQuery.of(context).size.height * 0.6,
               child: _buildButtonsGrid(),
@@ -51,12 +53,107 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _dragToDelete() {
-    // ignore: avoid_print
-    print("Delete last digit");
+    setState(
+      () {
+        if (result.length > 1) {
+          result = result.substring(0, result.length - 1);
+          currentNumber = result;
+        } else {
+          result = '0';
+          currentNumber = '';
+        }
+      },
+    );
   }
 
+  String previousNumber =
+      ''; //tracks the number before arithmetic operation is selected
+  String currentNumber =
+      ''; //tracks the number after arithmetic operation is selected
+  String selectedOperation = ''; //tracks the arithmetic operarion
+
   void _onButtonPressed(String buttonText) {
-    print("ButtonText");
+    setState(() {
+      switch (buttonText) {
+        case '/':
+        case '*':
+        case '-':
+        case '+':
+          if (previousNumber != '') {
+            _calculatedResult();
+          } else {
+            previousNumber = currentNumber;
+          }
+          currentNumber = '';
+          selectedOperation = buttonText;
+          break;
+        case '+/-':
+          currentNumber = convertStringToDouble(currentNumber) < 0
+              ? currentNumber.replaceAll('-', '')
+              : "-$currentNumber";
+          result = currentNumber;
+          break;
+        case '/':
+          currentNumber =
+              (convertStringToDouble(currentNumber) / 100).toString();
+          result = currentNumber;
+          break;
+        case '=':
+          _calculatedResult();
+          previousNumber = '';
+          selectedOperation = '';
+          break;
+        case 'C':
+          _resetCalculator();
+          break;
+        default:
+          currentNumber = currentNumber + buttonText;
+          result = currentNumber;
+      }
+    });
+  }
+
+  void _calculatedResult() {
+    double _previousNumber = convertStringToDouble(previousNumber);
+    double _currentNumber = convertStringToDouble(currentNumber);
+
+    switch (selectedOperation) {
+      case '/':
+        _previousNumber = _previousNumber / _currentNumber;
+        break;
+      case '*':
+        _previousNumber = _previousNumber * _currentNumber;
+        break;
+      case '-':
+        _previousNumber = _previousNumber - _currentNumber;
+        break;
+      case '+':
+        _previousNumber = _previousNumber + _currentNumber;
+        break;
+      default:
+        break;
+    }
+
+    currentNumber =
+        (_previousNumber % 1 == 0 ? _previousNumber.toInt() : _previousNumber)
+            .toString();
+    result = currentNumber;
+  }
+
+  void _resetCalculator() {
+    result = '0';
+    previousNumber = '';
+    currentNumber = '';
+    selectedOperation = '';
+  }
+
+  double convertStringToDouble(String number) {
+    return double.tryParse(number) ?? 0;
+  }
+
+  String _formatResult(String number) {
+    var formatter = NumberFormat("###,###.##", "en_US");
+    return formatter.format(convertStringToDouble(number));
   }
 
   Widget _buildButtonsGrid() {
@@ -75,13 +172,20 @@ class _HomePageState extends State<HomePage> {
               Radius.circular(60),
             ),
           ),
-          color: button.bgColor,
+          color: (button.value == selectedOperation && currentNumber == '')
+              ? Colors.white
+              : button.bgColor,
           onPressed: () {
             _onButtonPressed(button.value);
           },
           child: Text(
             button.value,
-            style: TextStyle(color: button.fgColor, fontSize: 35),
+            style: TextStyle(
+                color:
+                    (button.value == selectedOperation && currentNumber == '')
+                        ? button.bgColor
+                        : button.fgColor,
+                fontSize: 35),
           ),
         );
       },
